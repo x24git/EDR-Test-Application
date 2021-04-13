@@ -6,3 +6,4 @@
 # *~
 /EDR-Generator/target/
 *.idea
+/target/

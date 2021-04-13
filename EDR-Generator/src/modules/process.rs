@@ -1,5 +1,10 @@
-use std::process;
-use std::io::Error;
+use std::process::Command;
+use crate::modules::common::GenerationError;
+use std::thread;
+use std::time::Duration;
+use shlex::Shlex;
+use sysinfo::{SystemExt, ProcessExt};
+
 
 /// Structure defining the a process
 ///
@@ -10,44 +15,66 @@ use std::io::Error;
 /// - `cmd`: Process Command Line
 /// - `stime`: Start Time
 pub struct Process {
-    pub id: u32,
+    pub id: usize,
     pub name: String,
     pub cmd: String,
-    pub stime: String,
+    pub stime: u64,
 }
 
 /// Structure defining the Process Manager Class
 ///
 /// # Parameters
 ///
-/// - `shell`: Shell path to spawn new processes from
 /// - `processes`: Process Vector of all running processes
 pub struct ProcessManager {
-    shell: String,
     processes: Vec<Process>,
+    system: sysinfo::System,
+}
+
+/// Structure defining the process status
+///
+/// # Parameters
+///
+/// - `killed`: Process IDs that were killed
+/// - `premature`: Process IDs that were terminated autonomously
+/// - `failures`: Process IDs that failed to terminate
+#[derive(Debug)]
+pub struct KillCount {
+    pub killed: Vec<usize>,
+    pub premature: Vec<usize>,
+    pub failures: Vec<usize>,
+}
+
+impl Drop for ProcessManager {
+    fn drop(&mut self) {
+        match self.stop_all() {
+            Ok(_) => return,
+            Err(e) => eprintln!("{}", e) //todo: hook up to logger
+        }
+    }
 }
 
 impl ProcessManager {
     /// Instantiates the Process Manager with a default shell path
-    /// # Parameters
-    ///
-    /// - `shell_path`: Optional shell path to spawn new processes from. If not provided,
-    ///                 default OS shell will be used. "cmd" for Windows, "sh" for Unix/Darwin
     ///
     /// # Returns
     ///
     /// A `Result` which is:
     ///
     /// - `Ok`: The ProcessManager Instance
-    /// - `Err`: Shell path does not exist (or no permissions)
-    pub fn new(shell_path: Option<String>) -> Result<ProcessManager, Error> {
-        todo!()
+    /// - `Err`: Unable to get system information
+    pub fn new() -> Result<ProcessManager, GenerationError> {
+        Ok(ProcessManager {
+            processes: Vec::new(),
+            system: sysinfo::System::new()
+        })
+
     }
     /// Spawns a new process from the shell
     /// # Parameters
     ///
-    /// - `name`: Name of the process to spawn
-    /// - `command`: Shell command to execute when spawning the process
+    /// - `path`: Path to the executable to execute
+    /// - `arguments`: additional arguments to pass to the process
     ///
     /// # Returns
     ///
@@ -55,8 +82,27 @@ impl ProcessManager {
     ///
     /// - `Ok`: An integer representing the Process ID
     /// - `Err`: Error when executing command
-    pub fn new_process(&mut self, name: String, command: String) -> Result<(u64), Error>{
-        todo!()
+    pub fn new_process(&mut self, path: String, arguments: Option<String>) -> Result<usize, GenerationError>{
+        let args = String::from(arguments.unwrap_or(String::from(" ")));
+
+        match Command::new(&path).args(Shlex::new(&args)).spawn() {
+            Ok(child) =>{
+                self.system.refresh_processes();
+                let process = match self.system.get_process(child.id() as usize){
+                   Some(inner) => inner,
+                   None => return Err(GenerationError{kind: "processs".to_string(), message: "Process Died Unexpectedly".to_string() }),
+                };
+
+                self.processes.push(Process{
+                    id: child.id() as usize,
+                    name: String::from(process.name()),
+                    cmd: path,
+                    stime: process.start_time(),
+                });
+                Ok(child.id() as usize)
+            },
+            Err(err) => return Err(GenerationError::from(err))
+        }
     }
 
     /// Stops a process with a given Process ID
@@ -70,8 +116,13 @@ impl ProcessManager {
     ///
     /// - `Ok`: The Process was stopped successfully
     /// - `Err`: The process could not be stopped (may not exist, or no permissions)
-    fn stop_process(&mut self, pid: u64) -> Result<(), Error>{
-        todo!()
+    fn stop_process(&self, pid: usize) -> Result<&sysinfo::Process, GenerationError>{
+        let process = match self.system.get_process(pid){
+            Some(inner) => inner,
+            None => return Err(GenerationError{kind: "processs".to_string(), message: "Process Not Found".to_string() }),
+        };
+        process.kill(sysinfo::Signal::Kill);
+        Ok((process).clone())
     }
 
     /// Stops all child processes spawned by the Process Manager instance
@@ -81,9 +132,73 @@ impl ProcessManager {
     /// A `Result` which is:
     ///
     /// - `Ok`: Array of Process IDs that were stopped
-    /// - `Err`: Unable to stop processes (various errros)
-    pub fn stop_all(&mut self) -> Result<([u64]), Error>{
-        todo!()
+    /// - `Err`: Unable to stop processes (various errors)
+    pub fn stop_all(&mut self) -> Result<KillCount, GenerationError> {
+        let mut result = KillCount {
+            killed: vec![],
+            premature: vec![],
+            failures: vec![]
+        };
+        self.system.refresh_processes();
+        for process in &self.processes{
 
 
+            match self.stop_process(process.id) {
+                Ok(_) => {
+                    thread::sleep(Duration::from_millis(100));
+                    self.system.refresh_processes();
+                    match self.stop_process(process.id){
+                        Ok(_) => {result.failures.push(process.id)},
+                        Err(_) => result.killed.push(process.id)
+                    };
+                },
+                Err(_) => result.premature.push(process.id)
+            }
+
+        };
+        if result.killed.len() == 0 && result.premature.len() == 0 && result.failures.len() > 0 {
+            return Err(GenerationError{kind: "processs".to_string(), message: "All Child Processes Failed to Terminate".to_string() })
+        }
+        Ok(result)
+    }
+}
+
+#[cfg(test)]
+
+mod tests {
+    use super::*;
+
+    fn get_os_shell() -> String {
+        if cfg!(windows) {
+            return String::from("cmd")
+        } else if cfg!(unix) {
+            return String::from("sh")
+        } else {
+            assert!(false, "OS not supported");
+            return String::from("")
+        }
+    }
+
+    #[test]
+    fn valid_process_creation() {
+        let mut manager = ProcessManager::new().unwrap();
+        assert!(manager.new_process(get_os_shell(), None).is_ok())
+    }
+
+    #[test]
+    fn invalid_process_creation(){
+        let mut manager = ProcessManager::new().unwrap();
+        assert!(manager.new_process(String::from("garbasgwe"), None).is_err())
+    }
+
+    #[test]
+    fn all_processes_killed(){
+        let mut pids:Vec<usize> =  vec![];
+        let mut manager = ProcessManager::new().unwrap();
+        pids.push(manager.new_process(get_os_shell(), None).unwrap());
+        pids.push(manager.new_process(get_os_shell(), None).unwrap());
+        pids.push(manager.new_process(get_os_shell(), None).unwrap());
+        let result = manager.stop_all().unwrap();
+        assert_eq!(result.killed, pids)
+    }
 }
