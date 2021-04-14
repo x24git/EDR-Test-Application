@@ -9,3 +9,4 @@ edition = "2018"
 [dependencies]
 sysinfo = "0.17.0"
 shlex = "1.0.0"
+rand = "0.8.3"
