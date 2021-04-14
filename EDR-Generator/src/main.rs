@@ -1,5 +1,6 @@
 use crate::modules::process::ProcessManager;
 use crate::modules::common::GenerationError;
+use crate::modules::file_system;
 use std::thread;
 use std::time::Duration;
 
@@ -13,7 +14,12 @@ fn main()-> Result<(), GenerationError> {
     thread::sleep(Duration::from_millis(4000));
     let result = process_manager.stop_all()?;
     println!("{:?}", result);
-    println!("Success");
+    println!("Process Success");
+
+    file_system::new_file(String::from("test.txt"))?;
+    file_system::mod_file(String::from("test.txt"))?;
+    file_system::delete_file(String::from("test.txt"))?;
+    println!("File Success");
 
     Ok(())
 
