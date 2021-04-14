@@ -90,7 +90,7 @@ impl ProcessManager {
                 self.system.refresh_processes();
                 let process = match self.system.get_process(child.id() as usize){
                    Some(inner) => inner,
-                   None => return Err(GenerationError{kind: "processs".to_string(), message: "Process Died Unexpectedly".to_string() }),
+                   None => return Err(GenerationError::new("processs".to_string(), "Process Died Unexpectedly".to_string())),
                 };
 
                 self.processes.push(Process{
@@ -119,7 +119,7 @@ impl ProcessManager {
     fn stop_process(&self, pid: usize) -> Result<&sysinfo::Process, GenerationError>{
         let process = match self.system.get_process(pid){
             Some(inner) => inner,
-            None => return Err(GenerationError{kind: "processs".to_string(), message: "Process Not Found".to_string() }),
+            None => return Err(GenerationError::new("processs".to_string(), "Process Not Found".to_string())),
         };
         process.kill(sysinfo::Signal::Kill);
         Ok((process).clone())
@@ -157,14 +157,13 @@ impl ProcessManager {
 
         };
         if result.killed.len() == 0 && result.premature.len() == 0 && result.failures.len() > 0 {
-            return Err(GenerationError{kind: "processs".to_string(), message: "All Child Processes Failed to Terminate".to_string() })
+            return Err(GenerationError::new("processs".to_string(), "All Child Processes Failed to Terminate".to_string()))
         }
         Ok(result)
     }
 }
 
 #[cfg(test)]
-
 mod tests {
     use super::*;
 
