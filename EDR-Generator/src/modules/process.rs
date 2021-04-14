@@ -157,7 +157,7 @@ impl ProcessManager {
 
         };
         if result.killed.len() == 0 && result.premature.len() == 0 && result.failures.len() > 0 {
-            return Err(GenerationError::new("processs".to_string(), "All Child Processes Failed to Terminate".to_string()))
+            return Err(GenerationError::new("process".to_string(), "All Child Processes Failed to Terminate".to_string()))
         }
         Ok(result)
     }

@@ -15,7 +15,7 @@ use std::io::Write;
 ///
 /// - `Ok`: The file was created.
 /// - `Err`: There was an issue creating the file. (Qualified Path does not exist or no permissions)
-pub fn new_file(path: String) -> Result<(), GenerationError>{
+pub fn new_file(path: &String) -> Result<(), GenerationError>{
     OpenOptions::new().write(true).create_new(true).open(path)?;
     Ok(())
 }
@@ -33,7 +33,7 @@ pub fn new_file(path: String) -> Result<(), GenerationError>{
 ///
 /// - `Ok`: The file was modified.
 /// - `Err`: There was an issue modifying the file. (File does not exist or no permissions)
-pub fn mod_file(path: String,) -> Result<(), GenerationError>{
+pub fn mod_file(path: &String,) -> Result<(), GenerationError>{
     let mut file = OpenOptions::new().write(true).append(true).open(path)?;
     file.write(b"\0")?;
     Ok(())
@@ -51,7 +51,7 @@ pub fn mod_file(path: String,) -> Result<(), GenerationError>{
 ///
 /// - `Ok`: The file was deleted.
 /// - `Err`: There was an issue deleting the file. (File does not exist or no permissions)
-pub fn delete_file(path: String,) -> Result<(), GenerationError>{
+pub fn delete_file(path: &String,) -> Result<(), GenerationError>{
     remove_file(path)?;
     Ok(())
 }
@@ -74,7 +74,7 @@ mod tests {
     #[test]
     fn valid_file_creation()-> Result<(), GenerationError> {
         let path = rng_filename();
-        assert!(new_file(String::from(&path)).is_ok());
+        assert!(new_file(&String::from(&path)).is_ok());
         assert!(OpenOptions::new().read(true).open(String::from(&path)).is_ok());
         remove_file(&path)?;
         Ok(())
@@ -83,8 +83,8 @@ mod tests {
     #[test]
     fn duplicate_file_creation()-> Result<(), GenerationError> {
         let path = rng_filename();
-        assert!(new_file(String::from(&path)).is_ok());
-        assert!(new_file(String::from(&path)).is_err());
+        assert!(new_file(&String::from(&path)).is_ok());
+        assert!(new_file(&String::from(&path)).is_err());
         assert!(OpenOptions::new().read(true).open(String::from(&path)).is_ok());
         remove_file(&path)?;
         Ok(())
@@ -98,7 +98,7 @@ mod tests {
         let mut buffer = String::new();
         file.read_to_string(&mut buffer)?;
         assert_eq!(buffer, "");
-        assert!(mod_file(String::from(&path)).is_ok());
+        assert!(mod_file(&String::from(&path)).is_ok());
         file = OpenOptions::new().read(true).open(&path).unwrap();
         buffer = String::new();
         file.read_to_string(&mut buffer)?;
@@ -110,7 +110,7 @@ mod tests {
     #[test]
     fn bad_file_modification()-> Result<(), GenerationError> {
         let path = rng_filename();
-        assert!(mod_file(String::from(&path)).is_err());
+        assert!(mod_file(&String::from(&path)).is_err());
         Ok(())
     }
 
@@ -118,7 +118,7 @@ mod tests {
     fn valid_file_deletion()-> Result<(), GenerationError> {
         let path = rng_filename();
         OpenOptions::new().write(true).create(true).open(&path).unwrap();
-        assert!(delete_file(String::from(&path)).is_ok());
+        assert!(delete_file(&String::from(&path)).is_ok());
         assert!(OpenOptions::new().read(true).open(String::from(&path)).is_err());
         Ok(())
     }
@@ -126,7 +126,7 @@ mod tests {
     #[test]
     fn bad_file_deletion()-> Result<(), GenerationError> {
         let path = rng_filename();
-        assert!(delete_file(String::from(&path)).is_err());
+        assert!(delete_file(&String::from(&path)).is_err());
         Ok(())
     }
 }
