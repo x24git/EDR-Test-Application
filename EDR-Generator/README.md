@@ -14,7 +14,7 @@ Endpoint Detection and Response (EDR) agents are responsible to capturing and re
 ```csv
 cargo build
 cargo test
-carge run
+carge run examples/windows_input.csv`
 ```
 
 
@@ -27,7 +27,7 @@ Optional flags allows for specifying a deliminator and a specific output file.
 * `-d`| `--deliminator <character>` specify the single character to use as a deliminator for the input file. Default is `,`
 * `-o`| `--outfile <file_path>` specify where a log of activities should be written to. Default is `log.csv`
 
-####Example
+#### Example
 `edr_generator.exe input.csv -d ; --outfile output.csv`
 
 ***
