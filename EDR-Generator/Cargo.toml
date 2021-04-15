@@ -1,5 +1,5 @@
 [package]
-name = "EDR-Generator"
+name = "edr_generator"
 version = "0.1.0"
 authors = ["x24git <23037854+x24git@users.noreply.github.com>"]
 edition = "2018"
@@ -10,3 +10,7 @@ edition = "2018"
 sysinfo = "0.17.0"
 shlex = "1.0.0"
 rand = "0.8.3"
+csv = "1.1.6"
+serde = {version = "1.0.125", features = ["derive"]}
+whoami = "1.1.2"
+chrono = "0.4.19"
