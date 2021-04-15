@@ -14,3 +14,4 @@ csv = "1.1.6"
 serde = {version = "1.0.125", features = ["derive"]}
 whoami = "1.1.2"
 chrono = "0.4.19"
+clap = "2.33.3"
