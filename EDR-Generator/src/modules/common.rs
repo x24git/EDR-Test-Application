@@ -1,5 +1,8 @@
 use std::{fmt, io};
 use std::io::ErrorKind;
+use std::ffi::OsString;
+use std::time::SystemTime;
+use chrono::{DateTime, Utc};
 
 #[derive(Debug, Clone)] // derive std::fmt::Debug on AppError
 pub struct GenerationError {
@@ -41,4 +44,20 @@ impl From<&str> for GenerationError {
             message: error.to_string(),
         }
     }
+}
+
+impl From<OsString> for GenerationError {
+    fn from(_: OsString) -> Self {
+        GenerationError {
+            kind: String::from("OS Generic"),
+            io_subkind: None,
+            message: String::from("Unknown"),
+        }
+    }
+}
+
+pub fn get_time() -> String {
+    let now = SystemTime::now();
+    let now: DateTime<Utc> = now.into();
+    now.to_rfc3339()
 }

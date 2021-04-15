@@ -1,7 +1,8 @@
 use std::net::{TcpStream, TcpListener};
 use std::io::{Write, Read};
-use crate::modules::common::GenerationError;
+use crate::modules::common::{GenerationError, get_time};
 use std::thread;
+use crate::modules::logger::Log;
 
 /// Opens a socket connection to the target at a specified port. Will send provided message
 /// and then close the connection. Connection will not be maintained
@@ -16,9 +17,11 @@ use std::thread;
 ///
 /// A `Result` which is:
 ///
-/// - `Ok`: The message was successfully sent to the target.
+/// - `Ok`: Log data confirming the message was successfully sent to the target.
 /// - `Err`: There was an issue sending the message. (Network issue or bad message)
-pub fn send_message(ip: &String, port: u16, message: &Vec<u8>,) -> Result<(), GenerationError>{
+///
+///
+pub fn send_message(ip: &String, port: u16, message: &Vec<u8>,) -> Result<Log, GenerationError>{
     if port == 0 {
         return Err(GenerationError::new("network".to_string(), "Invalid Port Number".to_string()))
     }
@@ -26,7 +29,21 @@ pub fn send_message(ip: &String, port: u16, message: &Vec<u8>,) -> Result<(), Ge
     match TcpStream::connect(net_address) {
         Ok(mut stream) => {
             match stream.write(&*message){
-                Ok(_) => return Ok(()),
+                Ok(bytes_sent) => {
+                    let mut local_addr = "unknown".to_string();
+                    let mut local_port: u16 = 0;
+                    match stream.local_addr() {
+                        Ok(addr) => {
+                            local_addr = addr.ip().to_string();
+                            local_port = addr.port()
+                        }
+                        Err(_) => {}
+                    }
+                    return Ok(adapt_log_network("Network Connection".to_string(),
+                                                local_addr, local_port,
+                                                String::from(ip), port,
+                                                bytes_sent, "TCP/IP".to_string()))
+                },
                 Err(_) => return Err(GenerationError::new("network".to_string(), "Unable to open stream for writing".to_string()))
             }
         },
@@ -48,9 +65,9 @@ pub fn send_message(ip: &String, port: u16, message: &Vec<u8>,) -> Result<(), Ge
 ///
 /// A `Result` which is:
 ///
-/// - `Ok`: The message was successfully sent to the localhost.
+/// - `Ok`: Log data confirming the  message was successfully sent to the localhost.
 /// - `Err`: There was an issue sending the message. (Can not open local port or bad message)
-pub fn send_loopback_message(message: &Vec<u8>) -> Result<(), GenerationError> {
+pub fn send_loopback_message(message: &Vec<u8>) -> Result<Log, GenerationError> {
     let listener = match spawn_server(&String::from("127.0.0.1"), 0){
         Ok(inner) => inner,
         Err(_) => return Err(GenerationError::new("network".to_string(), "Unable to Start Server".to_string()))
@@ -59,8 +76,7 @@ pub fn send_loopback_message(message: &Vec<u8>) -> Result<(), GenerationError> {
     thread::spawn(move|| {
         server_listen(listener)
     });
-    send_message(&String::from("127.0.0.1"), port, message)?;
-    Ok(())
+    send_message(&String::from("127.0.0.1"), port, message)
 }
 
 /// Spawns a TCPListener at the provided interface and port.
@@ -115,6 +131,42 @@ fn server_listen(listener: TcpListener) -> Result<Vec<u8>, GenerationError>  {
     }
     drop(listener);
     Ok(recv_data.unwrap_or(vec![]))
+}
+
+/// Adapts a network event into a log struct used for logging
+///
+/// # Parameters
+///
+/// - `activity`: A string containing the type of activity that has occurred
+/// - `source_addr`: String containing the IPv4 IP address of the source
+/// - `source_port`: Port number of the source connection
+/// - `dest_addr`: String containing the IPv4 IP address of the destination
+/// - `dest_port`: Port number of the destination connection
+/// - `bytes_sent`: Number of bytes that were sent from source to destination
+/// - `protocol`: String containing the network protocol used for communication
+///
+/// # Returns
+///
+/// A `Result` which is:
+///
+/// - A Log struct customized for network connection events
+pub fn adapt_log_network(activity: String, source_addr: String, source_port: u16, dest_addr: String, dest_port: u16, bytes_sent: usize, protocol: String) -> Log {
+    Log{
+        t: String::from("Information"),
+        timestamp: get_time(),
+        username: String::from(""),
+        proc_name: String::from(""),
+        proc_cmd: String::from(""),
+        proc_id: String::from(""),
+        activity,
+        file_path: String::from(""),
+        source_addr,
+        source_port: source_port.to_string(),
+        dest_addr,
+        dest_port: dest_port.to_string(),
+        bytes_sent: bytes_sent.to_string(),
+        protocol
+    }
 }
 
 #[cfg(test)]
