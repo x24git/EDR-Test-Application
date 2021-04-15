@@ -1,0 +1,9 @@
+﻿new_file,
+pause, 2
+not_a_command,test2.txt
+delete_file,test3.txt
+process, 15
+mod_file,tesfgdft.txt
+process
+connect_self ,
+connect, 127.0.0.1,07

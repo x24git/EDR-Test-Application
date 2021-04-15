@@ -1,0 +1,10 @@
+﻿new_file,test.txt
+new_file,test2.txt
+pause,2
+mod_file,test2.txt
+new_file,test3.txt
+pause,15
+delete_file,test.txt
+delete_file,test2.txt
+delete_file,test3.txt
+connect_self,hello world

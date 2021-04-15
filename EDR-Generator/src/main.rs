@@ -52,11 +52,28 @@ fn main(){
 }
 
 
-}
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
+    fn test_good_inputs() {
+        let logger = Logger::new(&String::from("test.csv"));
+        let mut commander =  TaskCommander::new(&"tests/good_test.csv".to_string(), ",".as_bytes()[0], logger).unwrap();
+        let mut commands_processed = 0;
+        while commander.read_next() {
+            commands_processed = commands_processed + 1;
+        }
+        assert_eq!(0, commander.get_num_errors())
+    }
+    #[test]
+    fn test_bad_inputs() {
+        let logger = Logger::new(&String::from("test.csv"));
+        let mut commander =  TaskCommander::new(&"tests/bad_test.csv".to_string(), ",".as_bytes()[0], logger).unwrap();
+        let mut commands_processed = 0;
+        while commander.read_next() {
+            commands_processed = commands_processed + 1;
+        }
+        assert_eq!(9, commander.get_num_errors())
     }
 }
